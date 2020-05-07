@@ -38,7 +38,6 @@ void unix_error(char *msg) /* Unix-style error */
 void posix_error(int code, char *msg) /* Posix-style error */
 {
     fprintf(stderr, "%s: %s\n", msg, strerror(code));
-    exit(0);
 }
 
 void gai_error(int code, char *msg) /* Getaddrinfo-style error */

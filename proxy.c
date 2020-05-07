@@ -3,12 +3,14 @@
 */
 
 #include <stdio.h>
+#include <pthread.h>
 #include "csapp.h"
 
 void do_proxy(int connfd);
 void parse_url(char *url, char *hostname, char *port, char *uri);
 int read_hdrs(rio_t *rp, char *hdrs);
 int proxy(int clientfd, char *method, char *uri, char *hdrs, int connfd);
+void *thread_routine(void *vargp);
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
@@ -18,9 +20,10 @@ static const char *user_agent_hdr = "User-Agent: Mozilla/5.0 (X11; Linux x86_64;
 
 int main(int argc, char *argv[])
 {
-    int listenfd, connfd;
+    int listenfd, *connfdp;
     SA clientaddr;
     socklen_t clientlen;
+    pthread_t tid; 
     char hostname[MAXLINE], port[MAXLINE];
 
     if(argc != 2)
@@ -32,10 +35,11 @@ int main(int argc, char *argv[])
     listenfd = Open_listenfd(argv[1]);
     while(1){
         clientlen = sizeof(clientaddr);
-        connfd = Accept(listenfd, &clientaddr, &clientlen);
+        connfdp = Malloc(sizeof(int));
+        *connfdp = Accept(listenfd, &clientaddr, &clientlen);
         Getnameinfo(&clientaddr, clientlen, hostname, MAXLINE, port, MAXLINE, 0);
         printf("Accepted connection from (%s, %s)\n", hostname, port);
-        do_proxy(connfd);
+        Pthread_create(&tid, NULL, thread_routine, connfdp);
     }
     return 0;
 }
@@ -64,7 +68,6 @@ void do_proxy(int connfd)
     if(read_hdrs(&rio, hdrs) == -1)
     {
         unix_error("read hdrs error");
-        close(connfd);
         return;
     }
 
@@ -73,18 +76,15 @@ void do_proxy(int connfd)
     if(clientfd == -1)
     {
         unix_error("open clientfd error");
-        close(connfd);
         return;
     }
     if(proxy(clientfd, method, uri, hdrs, connfd) == -1)
     {
         unix_error("proxy error");
-        close(connfd);
-        close(clientfd);
+        Close(clientfd);
         return;
     }
-    close(connfd);
-    close(clientfd);
+    Close(clientfd);
 }
 
 void parse_url(char *url, char *hostname, char *port, char *uri)
@@ -154,4 +154,14 @@ int proxy(int clientfd, char *method, char *uri, char *hdrs, int connfd)
         }
     }
     return 0;
+}
+
+void *thread_routine(void *vargp)
+{
+    int connfd = *(int *)vargp;
+    Pthread_detach(pthread_self());
+    free(vargp);
+    do_proxy(connfd);
+    Close(connfd);
+    return NULL;
 }
