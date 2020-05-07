@@ -146,7 +146,7 @@ int proxy(int clientfd, char *method, char *uri, char *hdrs, int connfd)
     {
         return -1;
     }
-    while((readn = Rio_readlineb(&rio, (void *)buf, MAXLINE)) != 0)
+    while((readn = Rio_readnb(&rio, (void *)buf, MAXLINE)) != 0)
     {
         if(Rio_writen(connfd, (void *)buf, readn) == -1)
         {
