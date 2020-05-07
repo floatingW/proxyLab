@@ -7,8 +7,8 @@
 
 void do_proxy(int connfd);
 void parse_url(char *url, char *hostname, char *port, char *uri);
-void read_hdrs(rio_t *rp, char *hdrs);
-void proxy(int clientfd, char *method, char *uri, char *hdrs, int connfd);
+int read_hdrs(rio_t *rp, char *hdrs);
+int proxy(int clientfd, char *method, char *uri, char *hdrs, int connfd);
 /* Recommended max cache and object sizes */
 #define MAX_CACHE_SIZE 1049000
 #define MAX_OBJECT_SIZE 102400
@@ -50,19 +50,35 @@ void do_proxy(int connfd)
     Rio_readinitb(&rio, connfd);
 
     /* request line process */
-    Rio_readlineb(&rio, (void *)buf, MAXLINE);
-    printf("From src: %s\n", buf);
+    if(Rio_readlineb(&rio, (void *)buf, MAXLINE) == -1)
+    {
+        unix_error("read request line error");
+        return;
+    }
     sscanf(buf, "%s %s %s", method, url, version);
 
     /* url->hostname, port, uri */
     parse_url(url, hostname, port, uri);
 
     /* request headers process */
-    read_hdrs(&rio, hdrs);
+    if(read_hdrs(&rio, hdrs) == -1)
+    {
+        unix_error("read hdrs error");
+        return;
+    }
 
     /* forward request line and headers to server and forward response to client */
     int clientfd = Open_clientfd(hostname, port);
-    proxy(clientfd, method, uri, hdrs, connfd);
+    if(clientfd == -1)
+    {
+        unix_error("open clientfd error");
+        return;
+    }
+    if(proxy(clientfd, method, uri, hdrs, connfd) == -1)
+    {
+        unix_error("proxy error");
+        return;
+    }
 }
 
 void parse_url(char *url, char *hostname, char *port, char *uri)
@@ -75,10 +91,15 @@ void parse_url(char *url, char *hostname, char *port, char *uri)
     strcpy(port, strtok(NULL, ":"));
 }
 
-void read_hdrs(rio_t *rp, char *hdrs)
+int read_hdrs(rio_t *rp, char *hdrs)
 {
     char buf[MAXLINE];
-    Rio_readlineb(rp, (void *)buf, MAXLINE);
+    int readn;
+    readn = Rio_readlineb(rp, (void *)buf, MAXLINE);
+    if(readn == -1)
+    {
+        return -1;
+    }
     while(strcmp(buf, "\r\n"))
     {
         if(strstr(buf, "User-Agent") != NULL)
@@ -91,22 +112,34 @@ void read_hdrs(rio_t *rp, char *hdrs)
         {
             sprintf(hdrs, "%s%s", hdrs, buf);
         }
-        Rio_readlineb(rp, buf, MAXLINE);
+        readn = Rio_readlineb(rp, buf, MAXLINE);
+        if(readn == -1)
+        {
+            return -1;
+        }
     }
     sprintf(hdrs, "%s%s", hdrs, "Proxy-Connection: close\r\n");
     sprintf(hdrs, "%s%s", hdrs, "Connection: close\r\n\r\n");
+    return 0;
 }
 
-void proxy(int clientfd, char *method, char *uri, char *hdrs, int connfd)
+int proxy(int clientfd, char *method, char *uri, char *hdrs, int connfd)
 {
     rio_t rio;
     Rio_readinitb(&rio, clientfd);
     int readn;
     char buf[MAXLINE];
     sprintf(buf, "%s %s HTTP/1.0\r\n%s", method, uri, hdrs);
-    Rio_writen(clientfd, (void *)buf, strlen(buf));
+    if(Rio_writen(clientfd, (void *)buf, strlen(buf)) == -1)
+    {
+        return -1;
+    }
     while((readn = Rio_readlineb(&rio, (void *)buf, MAXLINE)) != 0)
     {
-        Rio_writen(connfd, (void *)buf, readn);
+        if(Rio_writen(connfd, (void *)buf, readn) == -1)
+        {
+            return -1;
+        }
     }
+    return 0;
 }

@@ -32,7 +32,6 @@
 void unix_error(char *msg) /* Unix-style error */
 {
     fprintf(stderr, "%s: %s\n", msg, strerror(errno));
-    exit(0);
 }
 /* $end unixerror */
 
@@ -905,10 +904,14 @@ ssize_t Rio_readn(int fd, void *ptr, size_t nbytes)
     return n;
 }
 
-void Rio_writen(int fd, void *usrbuf, size_t n) 
+ssize_t Rio_writen(int fd, void *usrbuf, size_t n) 
 {
-    if (rio_writen(fd, usrbuf, n) != n)
-	unix_error("Rio_writen error");
+    ssize_t wc;
+    if ((wc = rio_writen(fd, usrbuf, n)) < n)
+    {
+        unix_error("Rio_writen error");
+    }
+    return wc;
 }
 
 void Rio_readinitb(rio_t *rp, int fd)
