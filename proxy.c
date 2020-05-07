@@ -140,15 +140,16 @@ int proxy(int clientfd, char *method, char *uri, char *hdrs, int connfd)
     rio_t rio;
     Rio_readinitb(&rio, clientfd);
     int readn;
-    char buf[MAXLINE];
-    sprintf(buf, "%s %s HTTP/1.0\r\n%s", method, uri, hdrs);
-    if(Rio_writen(clientfd, (void *)buf, strlen(buf)) == -1)
+    char buf_sent[MAXLINE];
+    char buf_rec[MAXLINE];
+    sprintf(buf_sent, "%s %s HTTP/1.0\r\n%s", method, uri, hdrs);
+    if(Rio_writen(clientfd, (void *)buf_sent, strlen(buf_sent)) == -1)
     {
         return -1;
     }
-    while((readn = Rio_readnb(&rio, (void *)buf, MAXLINE)) != 0)
+    while((readn = Rio_readnb(&rio, (void *)buf_rec, MAXLINE)) != 0)
     {
-        if(Rio_writen(connfd, (void *)buf, readn) == -1)
+        if(Rio_writen(connfd, (void *)buf_rec, readn) == -1)
         {
             return -1;
         }
