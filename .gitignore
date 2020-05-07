@@ -3,4 +3,6 @@ tiny/*.o
 *.o
 proxy
 tiny/cgi-bin/adder
-.vscode/*
+.vscode/
+.noproxy/
+.proxy/

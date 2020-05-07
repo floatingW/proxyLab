@@ -64,6 +64,7 @@ void do_proxy(int connfd)
     if(read_hdrs(&rio, hdrs) == -1)
     {
         unix_error("read hdrs error");
+        close(connfd);
         return;
     }
 
@@ -72,13 +73,18 @@ void do_proxy(int connfd)
     if(clientfd == -1)
     {
         unix_error("open clientfd error");
+        close(connfd);
         return;
     }
     if(proxy(clientfd, method, uri, hdrs, connfd) == -1)
     {
         unix_error("proxy error");
+        close(connfd);
+        close(clientfd);
         return;
     }
+    close(connfd);
+    close(clientfd);
 }
 
 void parse_url(char *url, char *hostname, char *port, char *uri)
@@ -88,7 +94,13 @@ void parse_url(char *url, char *hostname, char *port, char *uri)
     p = strchr(url+7, '/');
     *p = '\0';
     strcpy(hostname, strtok(url+7, ":"));
-    strcpy(port, strtok(NULL, ":"));
+    if((p = strtok(NULL, ":")) == NULL)
+    {
+        strcpy(port, "80");
+    }else
+    {
+        strcpy(port, p);
+    }
 }
 
 int read_hdrs(rio_t *rp, char *hdrs)
