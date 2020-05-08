@@ -90,11 +90,12 @@ void do_proxy(int connfd)
 void parse_url(char *url, char *hostname, char *port, char *uri)
 {
     char *p;
+    char *saveptr;
     strcpy(uri, strchr(url+7, '/'));
     p = strchr(url+7, '/');
     *p = '\0';
-    strcpy(hostname, strtok(url+7, ":"));
-    if((p = strtok(NULL, ":")) == NULL)
+    strcpy(hostname, __strtok_r(url+7, ":", &saveptr));
+    if((p = __strtok_r(NULL, ":", &saveptr)) == NULL)
     {
         strcpy(port, "80");
     }else
